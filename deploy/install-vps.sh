@@ -36,7 +36,53 @@ if [[ ! -f "$config_dir/collector.env" ]]; then
   install -m 0600 "$source_dir/deploy/collector.env.example" "$config_dir/collector.env"
 fi
 
+php_version="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
+fpm_socket="/run/php/php${php_version}-fpm-dota.sock"
+fpm_pool="/etc/php/${php_version}/fpm/pool.d/dota-observer.conf"
+cat > "$fpm_pool" <<EOF
+[dota-observer]
+user = dota-collector
+group = dota-collector
+listen = ${fpm_socket}
+listen.owner = www-data
+listen.group = www-data
+listen.mode = 0660
+pm = ondemand
+pm.max_children = 6
+pm.process_idle_timeout = 10s
+pm.max_requests = 500
+clear_env = yes
+env[DATA_DIR] = /var/lib/dota-observer/data
+EOF
+
+cat > /etc/nginx/sites-available/dota-observer <<EOF
+server {
+    listen 127.0.0.1:8080;
+    server_name localhost;
+    root ${app_dir}/public;
+    index index.php;
+    client_max_body_size 2m;
+
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:${fpm_socket};
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+}
+EOF
+ln -sfn /etc/nginx/sites-available/dota-observer /etc/nginx/sites-enabled/dota-observer
+
 systemctl daemon-reload
 systemctl enable "$service_name"
+systemctl enable "php${php_version}-fpm" nginx
+systemctl restart "php${php_version}-fpm"
+systemctl restart nginx
 systemctl restart "$service_name"
 systemctl --no-pager --full status "$service_name"
