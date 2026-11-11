@@ -1,0 +1,26 @@
+[Unit]
+Description=Dota Observer live match collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dota-collector
+Group=dota-collector
+WorkingDirectory=/opt/dota-observer
+EnvironmentFile=-/etc/dota-observer/collector.env
+Environment=DATA_DIR=/var/lib/dota-observer/data
+ExecStart=/usr/bin/php /opt/dota-observer/script.php
+Restart=always
+RestartSec=10
+UMask=0027
+StateDirectory=dota-observer
+StateDirectoryMode=0750
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/dota-observer
+
+[Install]
+WantedBy=multi-user.target

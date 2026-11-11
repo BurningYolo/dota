@@ -15,6 +15,7 @@ data/
 script.php            Live collector
 status.php            CLI status report
 cleanup.php           CLI cleanup utility (dry run unless --apply)
+deploy/               Ubuntu/Debian systemd service and installer
 ```
 
 ## View the frontend
@@ -34,3 +35,5 @@ php script.php
 ```
 
 The match report uses local name mappings from [OpenDota's dotaconstants](https://github.com/odota/dotaconstants). Icons load from Valve's Steam CDN. Opening a match report does not call the OpenDota API.
+
+For VPS setup, see [deploy/README.md](deploy/README.md).
