@@ -22,12 +22,12 @@ chmod 600 .env
 docker compose up -d --build
 ```
 
-The Compose setup runs the collector and dashboard in separate containers. Both restart after a VPS reboot. The database and match files remain in `data/` on the host; the UI container mounts them read-only. The dashboard listens only on VPS loopback port 8080.
+The Compose setup runs the collector and dashboard in separate containers. Both restart after a VPS reboot. The database and match files remain in `data/` on the host; the UI container mounts them read-only. The dashboard listens only on VPS loopback port 8181.
 
 Open the UI from Windows PowerShell with an SSH tunnel:
 
 ```powershell
-ssh -i "$env:USERPROFILE\.ssh\id_ed25519" -N -L 8080:127.0.0.1:8080 burningyolo@104.207.67.207
+ssh -i "$env:USERPROFILE\.ssh\id_ed25519" -N -L 8080:127.0.0.1:8181 burningyolo@104.207.67.207
 ```
 
 Then browse to <http://localhost:8080>. Keep the SSH window open while using it.

@@ -30,7 +30,7 @@ services:
       - ./public:/app/public:ro
       - ./data:/var/lib/dota-observer/data:ro
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8181:8080"
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m
