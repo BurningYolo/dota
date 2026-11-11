@@ -6,11 +6,11 @@
   --muted: #91a398;
   --text: #edf7f0;
   --accent: #00d979;
-  --green: #54e99b;
-  --amber: #c7df81;
-  --blue: #86d9ad;
-  --violet: #93cfa7;
-  --red: #ec827c;
+  --green: #49d98d;
+  --amber: #e8b95e;
+  --blue: #78bdf2;
+  --violet: #bc9af2;
+  --red: #ed7770;
 }
 
 body {
@@ -78,15 +78,26 @@ button:hover { background: #12834c; }
   border-color: #285b3b !important;
 }
 
-.badge.amber,
-.badge.blue,
-.badge.violet {
-  color: #b8e9c7 !important;
-  background: #101e14 !important;
-  border-color: #31523b !important;
+.badge.amber {
+  color: #f2cb7d !important;
+  background: #21190b !important;
+  border-color: #57421b !important;
 }
-
-.badge.red { color: #ff9b91 !important; }
+.badge.blue {
+  color: #9bcfff !important;
+  background: #0c1925 !important;
+  border-color: #244968 !important;
+}
+.badge.violet {
+  color: #d0b7ff !important;
+  background: #181222 !important;
+  border-color: #493466 !important;
+}
+.badge.red {
+  color: #ff9b91 !important;
+  background: #241110 !important;
+  border-color: #66302e !important;
+}
 
 .filterbar {
   display: flex;
@@ -155,6 +166,7 @@ tbody tr:hover { background: #1c5d3820 !important; }
 
 .teamhead.r { color: #86f0b0 !important; }
 .teamhead.d { color: #e99b94 !important; }
+.winner.dire { color: #ffaaa1 !important; background: #241110 !important; border-color: #66302e !important; }
 .player,
 .stat,
 .fact { background: #080e0a !important; }
