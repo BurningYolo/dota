@@ -11,7 +11,37 @@ sudo apt update
 sudo apt install -y nginx php-cli php-curl php-fpm php-sqlite3
 ```
 
-## Install and resume
+## Docker deployment (recommended on this VPS)
+
+The VPS already has Docker enabled, so the collector and UI can run without changing its host PHP/Nginx services or requiring sudo. Copy the project, including the existing `data/` directory, to `/home/burningyolo/dota-observer`, then run:
+
+```sh
+cd ~/dota-observer
+cp .env.example .env
+chmod 600 .env
+docker compose up -d --build
+```
+
+The Compose setup runs the collector and dashboard in separate containers. Both restart after a VPS reboot. The database and match files remain in `data/` on the host; the UI container mounts them read-only. The dashboard listens only on VPS loopback port 8080.
+
+Open the UI from Windows PowerShell with an SSH tunnel:
+
+```powershell
+ssh -i "$env:USERPROFILE\.ssh\id_ed25519" -N -L 8080:127.0.0.1:8080 burningyolo@104.207.67.207
+```
+
+Then browse to <http://localhost:8080>. Keep the SSH window open while using it.
+
+Check the service and logs:
+
+```sh
+docker compose ps
+docker compose logs -f collector
+```
+
+Stop both containers without deleting collected data with `docker compose down`.
+
+## Systemd deployment (requires sudo)
 
 Copy the project tree to a temporary directory on the VPS, including its local `data/` folder. From that directory, run:
 

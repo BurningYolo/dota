@@ -16,6 +16,8 @@ script.php            Live collector
 status.php            CLI status report
 cleanup.php           CLI cleanup utility (dry run unless --apply)
 deploy/               Ubuntu/Debian systemd service and installer
+Dockerfile            PHP CLI image with cURL and SQLite extensions
+compose.yaml           Collector and SSH-tunneled UI containers
 ```
 
 ## View the frontend

@@ -1,0 +1,40 @@
+services:
+  collector:
+    build: .
+    image: dota-observer:local
+    restart: unless-stopped
+    init: true
+    user: "${DOTA_UID:-1000}:${DOTA_GID:-1000}"
+    working_dir: /app
+    command: ["php", "/app/script.php"]
+    env_file: .env
+    environment:
+      DATA_DIR: /var/lib/dota-observer/data
+    volumes:
+      - ./script.php:/app/script.php:ro
+      - ./data:/var/lib/dota-observer/data:rw
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+
+  web:
+    image: dota-observer:local
+    restart: unless-stopped
+    init: true
+    user: "${DOTA_UID:-1000}:${DOTA_GID:-1000}"
+    working_dir: /app
+    command: ["php", "-S", "0.0.0.0:8080", "-t", "/app/public"]
+    environment:
+      DATA_DIR: /var/lib/dota-observer/data
+    volumes:
+      - ./public:/app/public:ro
+      - ./data:/var/lib/dota-observer/data:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - collector
