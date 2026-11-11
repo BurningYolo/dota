@@ -9,8 +9,12 @@ $tables = [];
 $rows = [];
 $columns = [];
 $selectedTable = '';
+$totalRows = 0;
+$pages = 1;
 $page = max(1, min(100000, (int)($_GET['page'] ?? 1)));
-$pageSize = 100;
+$pageSize = (int)($_GET['per_page'] ?? 50);
+if (!in_array($pageSize, [25, 50, 100], true)) $pageSize = 50;
+$filter = trim(substr((string)($_GET['q'] ?? ''), 0, 100));
 $matchId = filter_var($_GET['match'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $tableParam = (string)($_GET['table'] ?? 'matches');
 
@@ -36,6 +40,13 @@ function gameClock(mixed $seconds): string
     return $sign . intdiv($seconds, 60) . ':' . str_pad((string)($seconds % 60), 2, '0', STR_PAD_LEFT);
 }
 
+function dataPageUrl(int $pageNumber): string
+{
+    $params = $_GET;
+    $params['page'] = $pageNumber;
+    return '?' . http_build_query($params);
+}
+
 if (is_file($dbPath)) {
     try {
         $db = new PDO('sqlite:' . $dbPath);
@@ -47,9 +58,29 @@ if (is_file($dbPath)) {
         if ($selectedTable !== '') {
             $quoted = '"' . str_replace('"', '""', $selectedTable) . '"';
             $columns = $db->query('PRAGMA table_info(' . $quoted . ')')->fetchAll(PDO::FETCH_ASSOC);
-            $totalRows = (int)$db->query('SELECT COUNT(*) FROM ' . $quoted)->fetchColumn();
+            $conditions = [];
+            $filterParams = [];
+            if ($filter !== '') {
+                foreach ($columns as $index => $column) {
+                    $columnName = '"' . str_replace('"', '""', (string)$column['name']) . '"';
+                    $param = ':filter' . $index;
+                    $conditions[] = 'CAST(' . $columnName . ' AS TEXT) LIKE ' . $param;
+                    $filterParams[$param] = '%' . $filter . '%';
+                }
+            }
+            $filterSql = $conditions ? ' WHERE (' . implode(' OR ', $conditions) . ')' : '';
+            $countStmt = $db->prepare('SELECT COUNT(*) FROM ' . $quoted . $filterSql);
+            $countStmt->execute($filterParams);
+            $totalRows = (int)$countStmt->fetchColumn();
+            $pages = max(1, (int)ceil($totalRows / $pageSize));
+            $page = min($page, $pages);
             $offset = ($page - 1) * $pageSize;
-            $rows = $db->query('SELECT * FROM ' . $quoted . ' LIMIT ' . $pageSize . ' OFFSET ' . $offset)->fetchAll(PDO::FETCH_ASSOC);
+            $rowsStmt = $db->prepare('SELECT * FROM ' . $quoted . $filterSql . ' LIMIT :limit OFFSET :offset');
+            foreach ($filterParams as $key => $value) $rowsStmt->bindValue($key, $value);
+            $rowsStmt->bindValue(':limit', $pageSize, PDO::PARAM_INT);
+            $rowsStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $rowsStmt->execute();
+            $rows = $rowsStmt->fetchAll(PDO::FETCH_ASSOC);
         }
     } catch (Throwable $e) {
         $error = 'Could not read the SQLite database. Check that PHP has PDO SQLite enabled and the data directory is readable.';
@@ -75,6 +106,7 @@ if ($matchId !== false && $matchId !== null) {
 <style>
 :root{color-scheme:dark;--bg:#101214;--panel:#171a1d;--line:#292e32;--muted:#929ba2;--text:#edf0f2;--accent:#c43d35}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% -15%,#39211f 0,transparent 38%),var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.shell{max-width:1250px;margin:auto;padding:30px 22px 55px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}.brand{display:flex;gap:12px;align-items:center}.mark{width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,#e8564b,#872a27);display:grid;place-items:center;font-weight:900;font-size:18px}.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#cf827b;font-weight:700}.title{font-size:21px;font-weight:700}.link{color:#f0b0a7;text-decoration:none;border:1px solid #55332f;border-radius:8px;padding:8px 11px}.link:hover{background:#281c1b}h1{font-size:29px;letter-spacing:-.04em;margin:0 0 4px}.intro{color:var(--muted);margin:0 0 22px}.panel{background:linear-gradient(145deg,#1a1d20,#151719);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:14px 0}.head{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px}.head strong{font-size:15px}.hint{color:var(--muted);font-size:12px}select,input{background:#101214;border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text)}.tools{display:flex;align-items:center;gap:8px}.body{padding:17px 18px}pre{margin:0;white-space:pre;overflow:auto;max-height:70vh;background:#101214;border:1px solid #24282b;border-radius:9px;padding:16px;color:#d8e0e4;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}.json-entry{margin:0 0 14px}.json-entry:last-child{margin-bottom:0}.entry-label{font-size:11px;color:#cfaaa5;margin:0 0 7px}.alert{padding:14px 16px;border:1px solid #55482c;border-radius:12px;background:#241f15;color:#e5c985;margin-bottom:15px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;white-space:nowrap}th,td{text-align:left;padding:11px 14px;border-bottom:1px solid #25292c;vertical-align:top}th{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}td{font-size:12px;max-width:360px;overflow:hidden;text-overflow:ellipsis}.pager{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;color:var(--muted);font-size:12px}.pager a{color:#f0b0a7;text-decoration:none}.badge{font:11px ui-monospace,monospace;color:#c7d0d4;background:#22272a;padding:3px 7px;border-radius:5px}.empty{color:var(--muted);padding:15px 0}@media(max-width:600px){.shell{padding:20px 13px}.head{align-items:flex-start;flex-direction:column}.tools{width:100%}.tools select{flex:1;min-width:0}.top{align-items:flex-start;gap:12px}}
 </style>
+<link rel="stylesheet" href="assets/theme.css">
 </head>
 <body><main class="shell">
 <header class="top"><div class="brand"><div class="mark">D</div><div><div class="eyebrow">Dota 2 · Research tools</div><div class="title">Dota Observer</div></div></div><a class="link" href="index.php">← Dashboard</a></header>
@@ -90,13 +122,13 @@ if ($matchId !== false && $matchId !== null) {
   <?php if ($finalError): ?><div class="empty"><?= h($finalError) ?></div><?php else: $decodedFinal = json_decode((string)$finalContent, true); $prettyFinal = is_array($decodedFinal) ? json_encode($decodedFinal, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : $finalContent; ?><pre><?= h($prettyFinal ?: $finalContent) ?></pre><?php endif; ?>
 </div></section>
 <?php else: ?>
-<section class="panel"><div class="head"><div><strong>SQLite browser</strong><div class="hint">Read-only · <?= number_format($totalRows) ?> rows in this table</div></div>
-  <?php if ($tables): ?><form class="tools" method="get"><select name="table" aria-label="SQLite table"><?php foreach ($tables as $table): ?><option value="<?= h($table) ?>" <?= $table === $selectedTable ? 'selected' : '' ?>><?= h($table) ?></option><?php endforeach; ?></select><button class="link" type="submit" style="cursor:pointer">Open table</button></form><?php endif; ?>
+<section class="panel"><div class="head"><div><strong>SQLite browser</strong><div class="hint">Read-only · <?= number_format($totalRows) ?> matching rows</div></div>
+  <?php if ($tables): ?><form class="filterbar data-filterbar" method="get"><select name="table" aria-label="SQLite table"><?php foreach ($tables as $table): ?><option value="<?= h($table) ?>" <?= $table === $selectedTable ? 'selected' : '' ?>><?= h($table) ?></option><?php endforeach; ?></select><input name="q" value="<?= h($filter) ?>" type="search" placeholder="Filter rows" aria-label="Filter table rows"><select name="per_page" aria-label="Rows per page"><option value="25" <?= $pageSize === 25 ? 'selected' : '' ?>>25 / page</option><option value="50" <?= $pageSize === 50 ? 'selected' : '' ?>>50 / page</option><option value="100" <?= $pageSize === 100 ? 'selected' : '' ?>>100 / page</option></select><button type="submit">Filter</button><a class="reset-link" href="data.php?table=<?= rawurlencode($selectedTable) ?>">Reset</a></form><?php endif; ?>
 </div>
 <?php if ($selectedTable): ?><div class="table-wrap"><table><thead><tr><?php foreach ($columns as $column): ?><th><?= h($column['name']) ?></th><?php endforeach; ?></tr></thead><tbody>
 <?php foreach ($rows as $row): ?><tr><?php foreach ($columns as $column): $value = $row[$column['name']] ?? null; ?><td title="<?= h(is_scalar($value) || $value === null ? (string)$value : json_encode($value)) ?>"><?php if ($selectedTable === 'matches' && $column['name'] === 'match_id' && $value !== null): ?><a class="link" style="padding:3px 7px" href="data.php?match=<?= h($value) ?>"><?= h($value) ?> ↗</a><?php elseif ($value === null): ?><span class="hint">NULL</span><?php else: ?><?= h((string)$value) ?><?php endif; ?></td><?php endforeach; ?></tr><?php endforeach; ?>
 <?php if (!$rows): ?><tr><td colspan="<?= max(1, count($columns)) ?>" class="empty">This table has no rows.</td></tr><?php endif; ?></tbody></table></div>
-<div class="pager"><span>Page <?= number_format($page) ?> of <?= number_format($pages) ?> · <?= number_format($pageSize) ?> rows per page</span><span><?php if ($page > 1): ?><a href="?table=<?= rawurlencode($selectedTable) ?>&amp;page=<?= $page - 1 ?>">← Previous</a><?php endif; ?><?php if ($page < $pages): ?> <a href="?table=<?= rawurlencode($selectedTable) ?>&amp;page=<?= $page + 1 ?>">Next →</a><?php endif; ?></span></div>
+<div class="pager"><span>Page <?= number_format($page) ?> of <?= number_format($pages) ?> · <?= number_format($pageSize) ?> per page</span><span><?php if ($page > 1): ?><a href="<?= h(dataPageUrl($page - 1)) ?>">← Previous</a><?php endif; ?><?php if ($page < $pages): ?> <a href="<?= h(dataPageUrl($page + 1)) ?>">Next →</a><?php endif; ?></span></div>
 <?php else: ?><div class="body empty">No SQLite tables found.</div><?php endif; ?></section>
 <?php endif; ?>
 </main></body></html>

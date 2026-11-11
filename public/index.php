@@ -9,6 +9,17 @@ $summary = [];
 $recent = [];
 $usage = [];
 $disk = ['live_files' => 0, 'live_bytes' => 0, 'final_files' => 0, 'final_bytes' => 0];
+$page = max(1, min(100000, (int)($_GET['page'] ?? 1)));
+$filteredTotal = 0;
+$matchPages = 1;
+$pageSize = (int)($_GET['per_page'] ?? 25);
+if (!in_array($pageSize, [25, 50, 100], true)) $pageSize = 25;
+$searchQuery = trim(substr((string)($_GET['q'] ?? ''), 0, 80));
+$statusFilter = (string)($_GET['status'] ?? '');
+$validStatuses = ['live', 'ended', 'fetched', 'parsed', 'unparsed', 'failed'];
+if (!in_array($statusFilter, $validStatuses, true)) $statusFilter = '';
+$minMmr = filter_var($_GET['min_mmr'] ?? null, FILTER_VALIDATE_INT);
+$maxMmr = filter_var($_GET['max_mmr'] ?? null, FILTER_VALIDATE_INT);
 
 function h(mixed $value): string
 {
@@ -53,13 +64,36 @@ function snapshotStats(string $path): array
     return $stats;
 }
 
+function pageUrl(int $pageNumber): string
+{
+    $params = $_GET;
+    $params['page'] = $pageNumber;
+    return '?' . http_build_query($params);
+}
+
 if (is_file($dbPath)) {
     try {
         $db = new PDO('sqlite:' . $dbPath);
         $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $summary = $db->query('SELECT status, COUNT(*) AS n FROM matches GROUP BY status')->fetchAll(PDO::FETCH_KEY_PAIR);
-        $recent = $db->query("SELECT match_id, status, avg_mmr, first_seen, last_seen, misses, attempts
-                              FROM matches ORDER BY last_seen DESC LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
+        $where = [];
+        $params = [];
+        if ($searchQuery !== '') { $where[] = 'CAST(match_id AS TEXT) LIKE :query'; $params[':query'] = '%' . $searchQuery . '%'; }
+        if ($statusFilter !== '') { $where[] = 'status = :status'; $params[':status'] = $statusFilter; }
+        if ($minMmr !== false && $minMmr !== null) { $where[] = 'avg_mmr >= :min_mmr'; $params[':min_mmr'] = $minMmr; }
+        if ($maxMmr !== false && $maxMmr !== null) { $where[] = 'avg_mmr <= :max_mmr'; $params[':max_mmr'] = $maxMmr; }
+        $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+        $countQuery = $db->prepare('SELECT COUNT(*) FROM matches' . $whereSql);
+        $countQuery->execute($params);
+        $filteredTotal = (int)$countQuery->fetchColumn();
+        $matchPages = max(1, (int)ceil($filteredTotal / $pageSize));
+        $page = min($page, $matchPages);
+        $rowsQuery = $db->prepare('SELECT match_id, status, avg_mmr, first_seen, last_seen, misses, attempts FROM matches' . $whereSql . ' ORDER BY last_seen DESC LIMIT :limit OFFSET :offset');
+        foreach ($params as $key => $value) $rowsQuery->bindValue($key, $value);
+        $rowsQuery->bindValue(':limit', $pageSize, PDO::PARAM_INT);
+        $rowsQuery->bindValue(':offset', ($page - 1) * $pageSize, PDO::PARAM_INT);
+        $rowsQuery->execute();
+        $recent = $rowsQuery->fetchAll(PDO::FETCH_ASSOC);
         foreach ($recent as &$match) {
             $match['snapshots'] = snapshotStats($dataDir . '/live/' . (int)$match['match_id'] . '.jsonl');
         }
@@ -71,6 +105,8 @@ if (is_file($dbPath)) {
         $error = 'Could not read collector data. Check that PHP has PDO SQLite enabled and the data directory is readable.';
     }
 } else {
+    $filteredTotal = 0;
+    $matchPages = 1;
     $error = 'Collector database not found yet. Start the collector to populate this dashboard.';
 }
 
@@ -97,6 +133,7 @@ $statusColors = ['live' => 'green', 'ended' => 'amber', 'fetched' => 'blue', 'pa
     .grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(260px,.8fr);gap:15px}.panel{overflow:hidden}.panel-head{padding:17px 19px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:15px}.panel-title{font-weight:650}.panel-hint{font-size:11px;color:var(--muted);margin-top:2px}.search{background:#101214;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 10px;outline:none;width:190px}.search:focus{border-color:#8d4d48}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}th{text-align:left;font-size:10px;color:var(--muted);letter-spacing:.11em;text-transform:uppercase;font-weight:650;padding:12px 18px}td{padding:13px 18px;border-top:1px solid #24282b;font-size:13px}tbody tr:hover{background:#ffffff06}.id{font-weight:650;font-variant-numeric:tabular-nums}.mmr{color:#d6dce0;font-variant-numeric:tabular-nums}.badge{padding:4px 9px;font-size:11px;text-transform:capitalize}.badge.green{color:var(--green);border-color:#315543}.badge.amber{color:var(--amber);border-color:#57492c}.badge.blue{color:var(--blue);border-color:#304c64}.badge.violet{color:var(--violet);border-color:#4a3e65}.badge.red{color:var(--red);border-color:#633b39}.empty{text-align:center;color:var(--muted);padding:36px 15px}.side{display:flex;flex-direction:column;gap:15px}.inner{padding:16px 19px}.status-row,.usage-row,.metric-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0}.status-row+.status-row,.usage-row+.usage-row,.metric-row+.metric-row{border-top:1px solid #25292c}.status-name{display:flex;align-items:center;gap:9px;color:#cdd2d5}.count{font-variant-numeric:tabular-nums;font-weight:650}.metric-row span:first-child,.usage-row span:first-child{color:var(--muted)}.metric-row strong,.usage-row strong{font-weight:630;font-variant-numeric:tabular-nums}.callbar{height:4px;background:#292e32;border-radius:9px;margin-top:12px;overflow:hidden}.callbar span{display:block;height:100%;background:linear-gradient(90deg,#c43d35,#e69a67);border-radius:9px}.foot{margin-top:17px;color:var(--muted);font-size:11px;text-align:right}.alert{padding:15px 17px;border:1px solid #55482c;border-radius:12px;background:#241f15;color:#e5c985;margin-bottom:17px}
     @media(max-width:820px){.grid{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,1fr)}}@media(max-width:520px){.shell{padding:22px 14px 40px}.hero{align-items:flex-start;gap:12px;flex-direction:column}.hero h1{font-size:25px}.cards{gap:9px}.card{padding:14px}.value{font-size:23px}.panel-head{align-items:flex-start;flex-direction:column}.search{width:100%}.top{margin-bottom:24px}}
   </style>
+  <link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
 <main class="shell">
@@ -110,7 +147,16 @@ $statusColors = ['live' => 'green', 'ended' => 'amber', 'fetched' => 'blue', 'pa
     <div class="card"><div class="label">Saved data</div><div class="value"><?= number_format(($disk['live_bytes'] + $disk['final_bytes']) / 1048576, 1) ?><small> MB</small></div><div class="sub"><?= number_format($disk['live_files'] + $disk['final_files']) ?> match files</div></div>
   </section>
   <div class="grid">
-    <section class="panel"><div class="panel-head"><div><div class="panel-title">Recent matches</div><div class="panel-hint">Latest activity · <?= count($recent) ?> shown</div></div><input id="search" class="search" type="search" placeholder="Search match ID or status" aria-label="Search matches"></div>
+    <section class="panel"><div class="panel-head"><div><div class="panel-title">Match library</div><div class="panel-hint">Showing <?= $filteredTotal ? (($page - 1) * $pageSize + 1) : 0 ?>–<?= min($page * $pageSize, $filteredTotal) ?> of <?= number_format($filteredTotal) ?> matches</div></div>
+      <form class="filterbar" method="get" action="index.php">
+        <input name="q" value="<?= h($searchQuery) ?>" type="search" placeholder="Match ID" aria-label="Filter by match ID">
+        <select name="status" aria-label="Filter by status"><option value="">All statuses</option><?php foreach ($validStatuses as $option): ?><option value="<?= h($option) ?>" <?= $statusFilter === $option ? 'selected' : '' ?>><?= h(ucfirst($option)) ?></option><?php endforeach; ?></select>
+        <input name="min_mmr" value="<?= h($minMmr === false || $minMmr === null ? '' : $minMmr) ?>" type="number" min="0" placeholder="Min MMR" aria-label="Minimum MMR">
+        <input name="max_mmr" value="<?= h($maxMmr === false || $maxMmr === null ? '' : $maxMmr) ?>" type="number" min="0" placeholder="Max MMR" aria-label="Maximum MMR">
+        <select name="per_page" aria-label="Rows per page"><option value="25" <?= $pageSize === 25 ? 'selected' : '' ?>>25 / page</option><option value="50" <?= $pageSize === 50 ? 'selected' : '' ?>>50 / page</option><option value="100" <?= $pageSize === 100 ? 'selected' : '' ?>>100 / page</option></select>
+        <button type="submit">Apply</button><a class="reset-link" href="index.php">Reset</a>
+      </form>
+    </div>
       <div class="table-wrap"><table><thead><tr><th>Match ID</th><th>Status</th><th>Avg MMR</th><th>Snapshots</th><th>Game-time coverage</th><th>Last seen</th></tr></thead><tbody id="matches">
       <?php foreach ($recent as $row): $status = (string)$row['status']; $color = $statusColors[$status] ?? ''; ?>
         <tr data-search="<?= h(strtolower($row['match_id'] . ' ' . $status)) ?>"><td class="id"><a href="match.php?id=<?= h($row['match_id']) ?>" style="color:inherit;text-decoration:none"><?= h($row['match_id']) ?> ↗</a></td><td><span class="badge <?= h($color) ?>"><?= h($status) ?></span></td><td class="mmr"><?= $row['avg_mmr'] === null ? '—' : number_format((int)$row['avg_mmr']) ?></td><td><?= number_format($row['snapshots']['count']) ?></td><td><?php if ($row['snapshots']['count']): ?><?= h(gameClock($row['snapshots']['first_game'])) ?> → <?= h(gameClock($row['snapshots']['last_game'])) ?><?php else: ?><span style="color:var(--muted)">No snapshots</span><?php endif; ?></td><td><?= $row['last_seen'] ? h(gmdate('M j, H:i', (int)$row['last_seen'])) . ' UTC' : '—' ?></td></tr>
@@ -133,6 +179,7 @@ $statusColors = ['live' => 'green', 'ended' => 'amber', 'fetched' => 'blue', 'pa
         <div class="metric-row"><span>Live snapshots</span><strong><?= number_format($disk['live_files']) ?></strong></div><div class="metric-row"><span>Final match files</span><strong><?= number_format($disk['final_files']) ?></strong></div><div class="metric-row"><span>Total size</span><strong><?= number_format(($disk['live_bytes'] + $disk['final_bytes']) / 1048576, 1) ?> MB</strong></div>
       </div></section>
     </aside>
+    <nav class="pagination" aria-label="Match pages"><span>Page <?= number_format($page) ?> of <?= number_format($matchPages) ?></span><div><?php if ($page > 1): ?><a href="<?= h(pageUrl(1)) ?>">First</a><a href="<?= h(pageUrl($page - 1)) ?>">Previous</a><?php else: ?><span class="disabled">First</span><span class="disabled">Previous</span><?php endif; ?><?php if ($page < $matchPages): ?><a href="<?= h(pageUrl($page + 1)) ?>">Next</a><a href="<?= h(pageUrl($matchPages)) ?>">Last</a><?php else: ?><span class="disabled">Next</span><span class="disabled">Last</span><?php endif; ?></div></nav>
   </div>
   <div class="foot">Data refreshes when this page loads · Times shown in UTC</div>
 </main>
