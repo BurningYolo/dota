@@ -1,0 +1,13 @@
+# Runtime match data and local database
+/data/
+
+# Local secrets and environment configuration
+.env
+.env.*
+!.env.example
+
+# Local editor and operating-system files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
