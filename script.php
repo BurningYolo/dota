@@ -21,7 +21,7 @@ declare(strict_types=1);
  *          MIN_MMR           default 6000
  *          POLL_SECONDS      default 30
  *          MIN_INTERVAL      min seconds between API calls, default 1.1
- *          DAILY_BUDGET      max API calls per UTC day, default 1800
+ *          DAILY_BUDGET      max API calls per UTC day, default 2800
  *          DATA_DIR          default ./data
  *
  * Requires: PHP 8+, ext-curl, ext-pdo_sqlite
@@ -38,7 +38,7 @@ $apiKey      = (string)(getenv('OPENDOTA_API_KEY') ?: '');
 $minMmr      = (int)(getenv('MIN_MMR') ?: 6000);
 $pollSeconds = (int)(getenv('POLL_SECONDS') ?: 30);
 $minInterval = (float)(getenv('MIN_INTERVAL') ?: 1.1);
-$dailyBudget = (int)(getenv('DAILY_BUDGET') ?: 1800);
+$dailyBudget = (int)(getenv('DAILY_BUDGET') ?: 2800);
 $dataDir     = rtrim((string)(getenv('DATA_DIR') ?: __DIR__ . '/data'), '/');
 // Optional filters, comma-separated ints (empty = no filter), e.g. GAME_MODES=22 LOBBY_TYPES=7
 $gameModes   = array_values(array_filter(array_map('intval', explode(',', (string)(getenv('GAME_MODES') ?: '')))));
