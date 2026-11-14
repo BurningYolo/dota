@@ -109,7 +109,7 @@ if ($matchId !== false && $matchId !== null) {
 <link rel="stylesheet" href="assets/theme.css">
 </head>
 <body><main class="shell">
-<header class="top"><div class="brand"><div class="mark">D</div><div><div class="eyebrow">Dota 2 · Research tools</div><div class="title">Dota Observer</div></div></div><a class="link" href="index.php">← Dashboard</a></header>
+<header class="top"><a class="brand brand-home" href="index.php" aria-label="Dota Observer home"><div class="mark">D</div><div><div class="eyebrow">Dota 2 · Research tools</div><div class="title">Dota Observer</div></div></a><a class="link" href="index.php">← Dashboard</a></header>
 <h1>Data browser</h1><p class="intro">Inspect saved live snapshots, final match responses, and read-only SQLite tables.</p>
 <?php if ($error): ?><div class="alert"><?= h($error) ?></div><?php endif; ?>
 <?php if ($matchId !== false && $matchId !== null): ?>

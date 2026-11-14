@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 <main class="shell">
   <header class="top">
-    <div class="brand"><div class="mark">D</div><div><div class="eyebrow">Dota Observer</div><div class="title">Collector settings</div></div></div>
+    <a class="brand brand-home" href="index.php" aria-label="Dota Observer home"><div class="mark">D</div><div><div class="eyebrow">Dota Observer</div><div class="title">Collector settings</div></div></a>
     <nav class="nav"><a href="index.php">Dashboard</a><?php if ($authenticated): ?><form method="post"><input type="hidden" name="csrf" value="<?= h(csrfToken()) ?>"><input type="hidden" name="action" value="logout"><button type="submit">Sign out</button></form><?php endif; ?></nav>
   </header>
   <?php if ($error): ?><div class="alert error"><?= h($error) ?></div><?php elseif ($notice): ?><div class="alert"><?= h($notice) ?></div><?php endif; ?>
