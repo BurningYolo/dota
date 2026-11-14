@@ -16,6 +16,7 @@ script.php            Live collector
 status.php            CLI status report
 cleanup.php           CLI cleanup utility (dry run unless --apply)
 deploy/               Ubuntu/Debian systemd service and installer
+tests/                Offline feature tests for the web app and collector
 Dockerfile            PHP CLI image with cURL and SQLite extensions
 compose.yaml           Collector and SSH-tunneled UI containers
 ```
@@ -39,3 +40,12 @@ php script.php
 The match report uses local name mappings from [OpenDota's dotaconstants](https://github.com/odota/dotaconstants). Icons load from Valve's Steam CDN. Opening a match report does not call the OpenDota API.
 
 For VPS setup, see [deploy/README.md](deploy/README.md).
+
+Run the offline feature tests with:
+
+```powershell
+php tests\header_home_links_test.php
+php tests\web_features_test.php
+php tests\cli_tools_test.php
+php tests\collector_features_test.php
+```

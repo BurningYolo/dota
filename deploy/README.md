@@ -41,7 +41,7 @@ Stop both containers without deleting collected data with `docker compose down`.
 
 ## Automatic deployment with GitHub Actions
 
-`.github/workflows/deploy-vps.yml` deploys each push to `main` and can also be run manually from the Actions tab. It lints PHP, transfers the committed files over SSH, validates the Compose configuration, and rebuilds/restarts the services. The workflow deploys only committed files, so the VPS `.env` and `data/` are not uploaded or overwritten.
+`.github/workflows/deploy-vps.yml` deploys each push to `main` and can also be run manually from the Actions tab. It lints PHP, runs the offline web/collector/CLI feature tests, transfers the committed files over SSH, validates the Compose configuration, and rebuilds/restarts the services. The workflow deploys only committed files, so the VPS `.env` and `data/` are not uploaded or overwritten.
 
 Set up a dedicated SSH key for Actions:
 

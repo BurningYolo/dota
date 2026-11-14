@@ -18,6 +18,7 @@ declare(strict_types=1);
  *
  * Usage:   php dota_live_collector.php
  * Env:     OPENDOTA_API_KEY  optional key (higher limits)
+ *          OPENDOTA_BASE_URL optional API root (defaults to OpenDota)
  *          MIN_MMR           default 5000
  *          POLL_SECONDS      default 30
  *          MIN_INTERVAL      min seconds between API calls, default 1.1
@@ -29,11 +30,11 @@ declare(strict_types=1);
  * the first poll logs the keys it sees.
  */
 
-const BASE_URL = 'https://api.opendota.com/api';
 const MISSES_TO_END = 3;       // consecutive polls absent from /live => ended
 const MAX_FETCH_ATTEMPTS = 8;  // for the first raw fetch
 const MAX_PARSE_ATTEMPTS = 6;  // for the parsed re-fetch
 
+$apiBaseUrl  = rtrim((string)(getenv('OPENDOTA_BASE_URL') ?: 'https://api.opendota.com/api'), '/');
 $apiKey      = (string)(getenv('OPENDOTA_API_KEY') ?: '');
 $minMmr      = (int)(getenv('MIN_MMR') ?: 5000);
 $pollSeconds = (int)(getenv('POLL_SECONDS') ?: 30);
@@ -104,7 +105,7 @@ function loadCollectorSettings(): void
 /** Returns [httpCode, body|null]. code 0 = not sent (budget) or network error. */
 function api(string $method, string $path, array $query = []): array
 {
-    global $apiKey, $minInterval, $dailyBudget, $db;
+    global $apiBaseUrl, $apiKey, $minInterval, $dailyBudget, $db;
     static $last = 0.0;
 
     $day = gmdate('Y-m-d');
@@ -121,7 +122,7 @@ function api(string $method, string $path, array $query = []): array
     if ($apiKey !== '') {
         $query['api_key'] = $apiKey;
     }
-    $url = BASE_URL . $path . ($query ? '?' . http_build_query($query) : '');
+    $url = $apiBaseUrl . $path . ($query ? '?' . http_build_query($query) : '');
 
     $ch = curl_init($url);
     curl_setopt_array($ch, [

@@ -30,6 +30,28 @@ jobs:
             php:8.3-cli \
             sh -ec 'find . -type f -name "*.php" -not -path "./.git/*" -not -path "./data/*" -print0 | xargs -0 -r -n1 php -l'
 
+      - name: Build test image
+        run: |
+          docker build -t dota-observer:test .
+
+      - name: Run feature tests
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            dota-observer:test \
+            sh -ec 'php tests/header_home_links_test.php &&
+                    php tests/web_features_test.php &&
+                    php tests/cli_tools_test.php &&
+                    php tests/collector_features_test.php'
+
+      - name: Validate deployment configuration
+        run: |
+          bash -n deploy/install-vps.sh
+          cp .env.example .env
+          docker compose config -q
+          rm .env
+
       - name: Configure SSH
         env:
           VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
