@@ -18,7 +18,7 @@ declare(strict_types=1);
  *
  * Usage:   php dota_live_collector.php
  * Env:     OPENDOTA_API_KEY  optional key (higher limits)
- *          MIN_MMR           default 6000
+ *          MIN_MMR           default 5000
  *          POLL_SECONDS      default 30
  *          MIN_INTERVAL      min seconds between API calls, default 1.1
  *          DAILY_BUDGET      max API calls per UTC day; 0 disables the cap
@@ -35,7 +35,7 @@ const MAX_FETCH_ATTEMPTS = 8;  // for the first raw fetch
 const MAX_PARSE_ATTEMPTS = 6;  // for the parsed re-fetch
 
 $apiKey      = (string)(getenv('OPENDOTA_API_KEY') ?: '');
-$minMmr      = (int)(getenv('MIN_MMR') ?: 6000);
+$minMmr      = (int)(getenv('MIN_MMR') ?: 5000);
 $pollSeconds = (int)(getenv('POLL_SECONDS') ?: 30);
 $minInterval = (float)(getenv('MIN_INTERVAL') ?: 1.1);
 $dailyBudget = (int)(getenv('DAILY_BUDGET') ?: 0);
@@ -67,6 +67,16 @@ $db->exec('CREATE TABLE IF NOT EXISTS matches (
     next_at    INTEGER NOT NULL DEFAULT 0
 )');
 $db->exec('CREATE TABLE IF NOT EXISTS usage (day TEXT PRIMARY KEY, calls INTEGER NOT NULL)');
+$db->exec('CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT NOT NULL)');
+$seedSetting = $db->prepare('INSERT OR IGNORE INTO settings (name, value) VALUES (?, ?)');
+foreach ([
+    'min_mmr' => (string)$minMmr,
+    'poll_seconds' => (string)$pollSeconds,
+    'min_interval' => (string)$minInterval,
+    'daily_budget' => (string)$dailyBudget,
+] as $name => $value) {
+    $seedSetting->execute([$name, $value]);
+}
 // Added later: track the feed's last_update_time and when we last saw it change.
 foreach (['last_update INTEGER NOT NULL DEFAULT 0', 'changed_at INTEGER NOT NULL DEFAULT 0'] as $col) {
     try {
@@ -79,6 +89,16 @@ foreach (['last_update INTEGER NOT NULL DEFAULT 0', 'changed_at INTEGER NOT NULL
 function logm(string $msg): void
 {
     echo '[' . gmdate('H:i:s') . '] ' . $msg . PHP_EOL;
+}
+
+function loadCollectorSettings(): void
+{
+    global $db, $minMmr, $pollSeconds, $minInterval, $dailyBudget;
+    $settings = $db->query('SELECT name, value FROM settings')->fetchAll(PDO::FETCH_KEY_PAIR);
+    $minMmr = max(0, min(15000, (int)($settings['min_mmr'] ?? $minMmr)));
+    $pollSeconds = max(10, min(3600, (int)($settings['poll_seconds'] ?? $pollSeconds)));
+    $minInterval = max(0.02, min(60.0, (float)($settings['min_interval'] ?? $minInterval)));
+    $dailyBudget = max(0, min(1000000, (int)($settings['daily_budget'] ?? $dailyBudget)));
 }
 
 /** Returns [httpCode, body|null]. code 0 = not sent (budget) or network error. */
@@ -318,8 +338,10 @@ function refetchParsed(): void
     }
 }
 
-logm("Collector started (MIN_MMR=$minMmr, poll={$pollSeconds}s, budget=$dailyBudget/day)");
+loadCollectorSettings();
+logm("Collector started (MIN_MMR=$minMmr, poll={$pollSeconds}s, budget=" . ($dailyBudget === 0 ? 'unlimited' : "$dailyBudget/day") . ')');
 while (true) {
+    loadCollectorSettings();
     pollLive();
     fetchEnded();
     refetchParsed();
