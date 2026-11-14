@@ -1,0 +1,73 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate PHP syntax
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            php:8.3-cli \
+            sh -ec 'find . -type f -name "*.php" -not -path "./.git/*" -not -path "./data/*" -print0 | xargs -0 -r -n1 php -l'
+
+      - name: Configure SSH
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$VPS_SSH_PRIVATE_KEY" ]; then
+            echo "::error::Add the VPS_SSH_PRIVATE_KEY repository secret before deploying."
+            exit 1
+          fi
+
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$HOME/.ssh/vps_deploy"
+          chmod 600 "$HOME/.ssh/vps_deploy"
+          printf '%s\n' '104.207.67.207 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPZKN06LDaHy8Y7B1sTYt91qilRkD6lb4PZBcO0Aw1Ox' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Upload committed files
+        run: |
+          set -euo pipefail
+          git archive --format=tar "$GITHUB_SHA" |
+            gzip -1 |
+            ssh \
+              -i "$HOME/.ssh/vps_deploy" \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes \
+              burningyolo@104.207.67.207 \
+              'mkdir -p /home/burningyolo/dota-observer && tar -xzf - -C /home/burningyolo/dota-observer'
+
+      - name: Rebuild and restart services
+        run: |
+          ssh \
+            -i "$HOME/.ssh/vps_deploy" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            burningyolo@104.207.67.207 \
+            'cd /home/burningyolo/dota-observer &&
+             docker compose config -q &&
+             docker compose up -d --build --force-recreate &&
+             docker compose ps &&
+             curl -fsS -o /dev/null http://127.0.0.1:8181/'
