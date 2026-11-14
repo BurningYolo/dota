@@ -22,15 +22,13 @@ chmod 600 .env
 docker compose up -d --build
 ```
 
-The Compose setup runs the collector and dashboard in separate containers. Both restart after a VPS reboot. The database and match files remain in `data/` on the host; the UI container mounts them read-only. The dashboard listens only on VPS loopback port 8181.
+The Compose setup runs the collector and dashboard in separate containers. Both restart after a VPS reboot. The database and match files remain in `data/` on the host; the UI container mounts them read-only. The dashboard is published on port 8181, so browse to `http://<VPS-IP>:8181`.
 
-Open the UI from Windows PowerShell with an SSH tunnel:
+The dashboard has no login and exposes the raw match JSON and SQLite data to anyone who can reach this port. Restrict port 8181 in your VPS provider firewall to trusted IPs if you want private access. For private access, keep the port on loopback and use an SSH tunnel instead.
 
 ```powershell
 ssh -i "$env:USERPROFILE\.ssh\id_ed25519" -N -L 8080:127.0.0.1:8181 burningyolo@104.207.67.207
 ```
-
-Then browse to <http://localhost:8080>. Keep the SSH window open while using it.
 
 Check the service and logs:
 

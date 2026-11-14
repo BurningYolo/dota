@@ -26,11 +26,12 @@ services:
     command: ["php", "-S", "0.0.0.0:8080", "-t", "/app/public"]
     environment:
       DATA_DIR: /var/lib/dota-observer/data
+      SETTINGS_PASSWORD_HASH: ${SETTINGS_PASSWORD_HASH:-}
     volumes:
       - ./public:/app/public:ro
-      - ./data:/var/lib/dota-observer/data:ro
+      - ./data:/var/lib/dota-observer/data:rw
     ports:
-      - "127.0.0.1:8181:8080"
+      - "8181:8080"
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m
