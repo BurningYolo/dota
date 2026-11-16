@@ -20,6 +20,8 @@ if ($path === '/live' && $scenario === 'live') {
     echo json_encode([
         ['match_id' => 9101, 'average_mmr' => 7200, 'game_mode' => 22, 'lobby_type' => 7, 'league_id' => 0, 'last_update_time' => $now - 20, 'game_time' => 100],
         ['match_id' => 9102, 'average_mmr' => 6500, 'game_mode' => 22, 'lobby_type' => 7, 'league_id' => 0, 'last_update_time' => $now - 20, 'game_time' => 100],
+        ['match_id' => 9108, 'average_mmr' => 5500, 'game_mode' => 22, 'lobby_type' => 7, 'league_id' => 0, 'last_update_time' => $now - 20, 'game_time' => 100],
+        ['match_id' => 9109, 'average_mmr' => 5000, 'game_mode' => 22, 'lobby_type' => 7, 'league_id' => 0, 'last_update_time' => $now - 20, 'game_time' => 100],
         ['match_id' => 9103, 'average_mmr' => 7500, 'game_mode' => 2, 'lobby_type' => 7, 'league_id' => 0, 'last_update_time' => $now - 20, 'game_time' => 100],
         ['match_id' => 9104, 'average_mmr' => 7500, 'game_mode' => 22, 'lobby_type' => 9, 'league_id' => 0, 'last_update_time' => $now - 20, 'game_time' => 100],
         ['match_id' => 9105, 'average_mmr' => 7500, 'game_mode' => 22, 'lobby_type' => 7, 'league_id' => 42, 'last_update_time' => $now - 20, 'game_time' => 100],

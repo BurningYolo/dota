@@ -26,6 +26,8 @@ The Compose setup runs the collector and dashboard in separate containers. Both 
 
 The settings page is at `/settings.php` and uses the password configured by `SETTINGS_PASSWORD_HASH` in the server's `.env`. The dashboard and raw match data do not require login. Restrict port 8181 in your VPS provider firewall to trusted IPs if you want private access. For private access, keep the port on loopback and use an SSH tunnel instead.
 
+On an existing install, change the minimum MMR on the settings page. Its saved SQLite value takes precedence over `MIN_MMR` in `.env`; that environment value only seeds a new database. The collector applies saved settings on its next cycle and logs `Minimum MMR updated to 5000` when the value changes. A 5,000 minimum includes matches averaging 5,000 and above, but only matches present in OpenDota's current live feed can be collected; lowering the threshold does not backfill older games.
+
 ```powershell
 ssh -i "$env:USERPROFILE\.ssh\id_ed25519" -N -L 8080:127.0.0.1:8181 burningyolo@104.207.67.207
 ```
@@ -78,6 +80,8 @@ sudo systemctl start dota-collector
 ```
 
 If this is a first install, copy data before the first service start. The unit creates the state directory automatically.
+
+For an existing systemd install, update the minimum MMR on the settings page; its saved SQLite value takes precedence over `MIN_MMR` in `/etc/dota-observer/collector.env`. The collector applies saved settings on its next cycle and logs `Minimum MMR updated to 5000` when the value changes. The collector only saves matches present in OpenDota's current live feed, so lowering the threshold does not backfill older games.
 
 ## Check and control it
 

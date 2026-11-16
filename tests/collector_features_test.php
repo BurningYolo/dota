@@ -59,10 +59,11 @@ function waitForMatchState(
     int $matchId,
     string $expectedStatus,
     ?int $expectedAttempts = null,
-    ?string $collectorLog = null
+    ?string $collectorLog = null,
+    int $timeoutSeconds = 8
 ): array
 {
-    $deadline = microtime(true) + 8;
+    $deadline = microtime(true) + $timeoutSeconds;
     do {
         $dbPath = $dataDir . '/collector.sqlite';
         if (is_file($dbPath)) {
@@ -115,7 +116,7 @@ try {
         'avg_mmr' => 7100,
         'misses' => 2,
     ]], [
-        'min_mmr' => '7000',
+        'min_mmr' => '6000',
         'poll_seconds' => '10',
         'min_interval' => '0.02',
         'daily_budget' => '20',
@@ -124,6 +125,12 @@ try {
     [$mockServer, $mockUrl, $apiLog] = startMockApi($root, 'live');
     [$collector, $collectorLog] = startCollector($root, $liveData, $mockUrl, ['MIN_MMR' => '6000']);
     waitForMatchState($collector, $liveData, 9101, 'live', null, $collectorLog);
+    $db = new PDO('sqlite:' . $liveData . '/collector.sqlite');
+    $db->prepare("UPDATE settings SET value = '5000' WHERE name = 'min_mmr'")->execute();
+    unset($db);
+    waitForMatchState($collector, $liveData, 9102, 'live', null, $collectorLog, 20);
+    waitForMatchState($collector, $liveData, 9108, 'live', null, $collectorLog, 20);
+    waitForMatchState($collector, $liveData, 9109, 'live', null, $collectorLog, 20);
     $stale = waitForMatchState($collector, $liveData, 9106, 'ended', 1, $collectorLog);
     waitForMatchState($collector, $liveData, 9107, 'ended', null, $collectorLog);
     testStopProcess($collector);
@@ -133,13 +140,15 @@ try {
 
     $db = new PDO('sqlite:' . $liveData . '/collector.sqlite');
     $rows = $db->query('SELECT match_id, status FROM matches ORDER BY match_id')->fetchAll(PDO::FETCH_KEY_PAIR);
-    testAssert($rows === [9101 => 'live', 9106 => 'ended', 9107 => 'ended'], 'Collector should apply stored MMR, game mode, lobby, and league filters and end repeatedly missing matches.');
+    testAssert($rows === [9101 => 'live', 9102 => 'live', 9106 => 'ended', 9107 => 'ended', 9108 => 'live', 9109 => 'live'], 'A saved 5000 MMR threshold should accept matches from 5000 up even when the environment default is 6000, while applying other live-feed filters.');
+    testAssertContains('Minimum MMR updated to 5000', (string)file_get_contents($collectorLog), 'Collector should log when the minimum MMR changes while it is running.');
     testAssert((int)$stale['next_at'] > time(), 'Stale matches should be queued for a delayed final fetch.');
     $missing = $db->query('SELECT misses, next_at FROM matches WHERE match_id = 9107')->fetch(PDO::FETCH_ASSOC);
     testAssert((int)$missing['misses'] === 3 && (int)$missing['next_at'] > time(), 'Matches missing for three polls should transition to ended with a final-fetch delay.');
     $snapshotPath = $liveData . '/live/9101.jsonl';
     testAssert(is_file($snapshotPath), 'Collector should save a new live snapshot.');
-    $snapshot = json_decode(trim((string)file_get_contents($snapshotPath)), true);
+    testAssert(is_file($liveData . '/live/9109.jsonl'), 'Collector should save a snapshot for a match exactly at the minimum MMR.');
+    $snapshot = json_decode(explode(PHP_EOL, trim((string)file_get_contents($snapshotPath)))[0], true);
     testAssert(($snapshot['game']['match_id'] ?? null) === 9101, 'Live snapshot should contain the accepted match.');
     testAssert(!is_file($liveData . '/live/9106.jsonl'), 'Stale matches should not receive a live snapshot.');
     testAssertContains('GET /matches/9106', (string)file_get_contents($apiLog), 'Stale match should be queued for final fetch.');

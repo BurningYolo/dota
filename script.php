@@ -95,8 +95,14 @@ function logm(string $msg): void
 function loadCollectorSettings(): void
 {
     global $db, $minMmr, $pollSeconds, $minInterval, $dailyBudget;
+    static $previousMinMmr = null;
     $settings = $db->query('SELECT name, value FROM settings')->fetchAll(PDO::FETCH_KEY_PAIR);
-    $minMmr = max(0, min(15000, (int)($settings['min_mmr'] ?? $minMmr)));
+    $storedMinMmr = max(0, min(15000, (int)($settings['min_mmr'] ?? $minMmr)));
+    if ($previousMinMmr !== null && $storedMinMmr !== $previousMinMmr) {
+        logm("Minimum MMR updated to $storedMinMmr");
+    }
+    $previousMinMmr = $storedMinMmr;
+    $minMmr = $storedMinMmr;
     $pollSeconds = max(10, min(3600, (int)($settings['poll_seconds'] ?? $pollSeconds)));
     $minInterval = max(0.02, min(60.0, (float)($settings['min_interval'] ?? $minInterval)));
     $dailyBudget = max(0, min(1000000, (int)($settings['daily_budget'] ?? $dailyBudget)));
