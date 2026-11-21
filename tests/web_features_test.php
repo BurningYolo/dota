@@ -107,6 +107,11 @@ try {
     testAssertContains('No file has been saved for this match yet.', $html, 'Data browser should explain missing match files.');
     echo "PASS: SQLite browser, filtering, pagination, and JSON files\n";
 
+    [$status, $body] = testHttpRequest($baseUrl, 'download.php', $cookieJar);
+    testAssert($status === 403, 'Data download should require settings authentication.');
+    testAssertContains('Sign in on the collector settings page', $body, 'Unauthenticated download should explain how to sign in.');
+    echo "PASS: data download access control\n";
+
     [$status, $html] = testHttpRequest($baseUrl, 'match.php?id=101', $cookieJar);
     testAssert($status === 200, 'Match report should return HTTP 200.');
     testAssertContains('Radiant Test', $html, 'Match report should render the team names.');
@@ -134,6 +139,22 @@ try {
         'csrf' => $csrf, 'action' => 'login', 'password' => $password,
     ]);
     testAssertContains('Live collector controls', $html, 'Correct settings password should unlock controls.');
+
+    [$status, $archiveBody] = testHttpRequest($baseUrl, 'download.php', $cookieJar);
+    testAssert($status === 200, 'Authenticated data download should return HTTP 200.');
+    $archivePath = $root . DIRECTORY_SEPARATOR . 'download.tar.gz';
+    file_put_contents($archivePath, $archiveBody);
+    $archive = new PharData($archivePath);
+    testAssert(isset($archive['data/collector.sqlite']), 'Download should include a SQLite database snapshot.');
+    testAssert(isset($archive['data/live/101.jsonl']), 'Download should include live snapshots.');
+    testAssert(isset($archive['data/final/101.json']), 'Download should include final match JSON.');
+    $extractPath = $root . DIRECTORY_SEPARATOR . 'download-extracted';
+    $archive->extractTo($extractPath);
+    $downloadedDb = new PDO('sqlite:' . $extractPath . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'collector.sqlite');
+    $downloadedCount = (int)$downloadedDb->query('SELECT COUNT(*) FROM matches')->fetchColumn();
+    testAssert($downloadedCount === 52, 'Downloaded SQLite file should be a valid copy of the collector database.');
+    unset($downloadedDb, $archive);
+    echo "PASS: authenticated download archive includes SQLite and match files\n";
 
     [, $html] = testHttpRequest($baseUrl, 'settings.php', $cookieJar);
     $csrf = extractCsrf($html);

@@ -26,6 +26,8 @@ The Compose setup runs the collector and dashboard in separate containers. Both 
 
 The settings page is at `/settings.php` and uses the password configured by `SETTINGS_PASSWORD_HASH` in the server's `.env`. The dashboard and raw match data do not require login. Restrict port 8181 in your VPS provider firewall to trusted IPs if you want private access. For private access, keep the port on loopback and use an SSH tunnel instead.
 
+The dashboard's **Download all data** button downloads a `.tar.gz` archive of the SQLite database and all live/final match JSON files. The download requires signing in through the settings page; configure `SETTINGS_PASSWORD_HASH` to enable it.
+
 On an existing install, change the minimum MMR on the settings page. Its saved SQLite value takes precedence over `MIN_MMR` in `.env`; that environment value only seeds a new database. The collector applies saved settings on its next cycle and logs `Minimum MMR updated to 5000` when the value changes. A 5,000 minimum includes matches averaging 5,000 and above, but only matches present in OpenDota's current live feed can be collected; lowering the threshold does not backfill older games.
 
 ```powershell

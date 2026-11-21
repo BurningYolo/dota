@@ -37,6 +37,8 @@ The collector remains a separate CLI process:
 php script.php
 ```
 
+Use **Download all data** on the dashboard or data browser to save a `.tar.gz` archive containing the SQLite database and all live/final match JSON files. Sign in through **Collector settings** first; downloads are disabled until `SETTINGS_PASSWORD_HASH` is configured.
+
 The match report uses local name mappings from [OpenDota's dotaconstants](https://github.com/odota/dotaconstants). Icons load from Valve's Steam CDN. Opening a match report does not call the OpenDota API.
 
 For VPS setup, see [deploy/README.md](deploy/README.md).
